@@ -42,7 +42,7 @@ var _ = gg.Describe("Connection Test", func() {
 		gm.Expect(conn).ToNot(gm.BeNil())
 	})
 
-	gg.It("Dealines should be calculated correctly", func() {
+	gg.It("Deadlines should be calculated correctly", func() {
 		deadline := func(timeout time.Duration) (res time.Time) {
 			if timeout > 0 {
 				res = time.Now().Add(timeout)
