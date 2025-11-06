@@ -1,0 +1,25 @@
+name: Deploy Aerolab Cluster
+
+on:
+  workflow_dispatch:
+    inputs:
+      aerospike_version:
+        description: "Aerolab/Aerospike version"
+        required: false
+        default: "8.1.0.1"
+      nodes:
+        description: "Number of cluster nodes"
+        required: false
+        default: 3
+      cluster_name:
+        description: "Cluster name"
+        required: false
+        default: "ce"
+
+jobs:
+  deploy:
+    uses: gagan405/github-action-aerolab-runner/.github/workflows/run-aerolab.yml@aerolab-ci
+    with:
+      aerospike_version: ${{ github.event.inputs.aerospike_version }}
+      nodes: ${{ github.event.inputs.nodes }}
+      cluster_name: ${{ github.event.inputs.cluster_name }}
