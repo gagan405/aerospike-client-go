@@ -61,10 +61,10 @@ jobs:
         include: ${{ fromJson(needs.make-matrix.outputs.input-matrix) }}
     steps:
       - uses: actions/checkout@v4
-      - name: "Setup Go ${{ matrix.go-version }}"
+      - name: "Setup Go ${{ needs.make-matrix.outputs.go-version }}"
         uses: actions/setup-go@v4
         with:
-          go-version: "${{ matrix.go-version }}"
+          go-version: "${{ needs.make-matrix.outputs.go-version }}"
           cache: true
       - name: Fetch dependencies
         env:
@@ -82,7 +82,7 @@ jobs:
 
       - name: Display Go version
         run: |
-          echo "Go version: ${{ matrix.go-version }}"
+          echo "Go version: ${{ needs.make-matrix.outputs.go-version }}"
       - name: Test pkg tests
         env: {GOPROXY: off, GOSUMDB: off, GOFLAGS: -mod=vendor}
         run: go run -mod=vendor github.com/onsi/ginkgo/v2/ginkgo -cover -race -r -keep-going -succinct -randomize-suites pkg -- -p=3100
