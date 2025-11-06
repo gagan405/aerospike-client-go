@@ -10,7 +10,7 @@ on:
       nodes:
         description: "Number of cluster nodes"
         required: false
-        default: 3
+        default: "3"
       cluster_name:
         description: "Cluster name"
         required: false
