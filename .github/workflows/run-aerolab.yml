@@ -1,0 +1,18 @@
+name: Deploy Aerolab Cluster
+
+on:
+  workflow_dispatch:
+
+jobs:
+  config:
+    uses: gagan405/github-action-aerolab-runner/.github/workflows/run-aerolab.yml@aerolab-ci
+    with:
+      aerolab_cmd: "config backend -t docker"
+
+  create-cluster:
+    needs: config
+    uses: gagan405/github-action-aerolab-runner/.github/workflows/run-aerolab.yml@aerolab-ci
+    with:
+      aerolab_cmd: "cluster create -v 8.1.0.1 -c 3 -n ce"
+      version: "7.9.0"
+
