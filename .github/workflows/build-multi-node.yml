@@ -43,9 +43,18 @@ jobs:
         run: |
           echo ${{ steps.get-go-version.outputs.go-version }}
           echo ${{ steps.create-server-matrix.outputs.input-matrix }}
+
+  deploy-aerolab:
+    needs: make-matrix
+    uses: gagan405/github-action-aerolab-runner/.github/workflows/run-aerolab.yml@aerolab-ci
+    with:
+      aerospike_version: ${{ github.event.inputs.aerospike_version }}
+      nodes: ${{ github.event.inputs.nodes }}
+      cluster_name: ${{ github.event.inputs.cluster_name }}
+      
   build:
     timeout-minutes: 30
-    needs: make-matrix
+    needs: deploy-aerolab
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -74,14 +83,6 @@ jobs:
       - name: Display Go version
         run: |
           echo "Go version: ${{ matrix.go-version }}"
-
-      - name: Deploy Aerolab Multinode Cluster
-        uses: gagan405/github-action-aerolab-runner/.github/workflows/run-aerolab.yml@aerolab-ci
-        with:
-          aerospike_version: ${{ github.event.inputs.aerospike_version }}
-          nodes: ${{ github.event.inputs.nodes }}
-          cluster_name: ${{ github.event.inputs.cluster_name }}
-      
       - name: Test pkg tests
         env: {GOPROXY: off, GOSUMDB: off, GOFLAGS: -mod=vendor}
         run: go run -mod=vendor github.com/onsi/ginkgo/v2/ginkgo -cover -race -r -keep-going -succinct -randomize-suites pkg -- -p=3100
