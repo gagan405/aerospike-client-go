@@ -1,0 +1,116 @@
+name: Deploy Aerolab Cluster
+
+on:
+  workflow_dispatch:
+    inputs:
+      aerospike_version:
+        description: "Aerolab/Aerospike version"
+        required: false
+        default: "8.1.0.1"
+      nodes:
+        description: "Number of cluster nodes"
+        required: false
+        default: "3"
+      cluster_name:
+        description: "Cluster name"
+        required: false
+        default: "ce"
+jobs:
+  make-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      input-matrix: ${{ steps.create-server-matrix.outputs.matrix }}
+      go-version: ${{ steps.get-go-version.outputs.go-version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get Go version
+        id: get-go-version
+        run: |
+          echo "go-version=$(grep '^go [0-9]' go.mod | awk '{print $2}')" >> $GITHUB_OUTPUT
+          
+      - id: create-server-matrix
+        uses: ./.github/actions/make-matrix
+        with:
+          default_json: |
+            {
+              "stable": { "version": "8.1.0.1" },
+              "release": { "version": "8.1.0.1_2" }
+            }
+          go_version: ${{ steps.get-go-version.outputs.go-version }}
+
+      - name: debug - print input variables
+        run: |
+          echo ${{ steps.get-go-version.outputs.go-version }}
+          echo ${{ steps.create-server-matrix.outputs.input-matrix }}
+  build:
+    timeout-minutes: 30
+    needs: make-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include: ${{ fromJson(needs.make-matrix.outputs.input-matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: "Setup Go ${{ matrix.go-version }}"
+        uses: actions/setup-go@v4
+        with:
+          go-version: "${{ matrix.go-version }}"
+          cache: true
+      - name: Fetch dependencies
+        env:
+          GODEBUG: fips140=on
+        run: |
+          # Install all dependencies
+          go mod download
+
+          # Install ginkgo CLI and gocovmerge for testing
+          go install github.com/onsi/ginkgo/v2/ginkgo@v2.22.2
+          go mod download github.com/wadey/gocovmerge
+
+          # Vendor the dependencies
+          go mod vendor
+
+      - name: Display Go version
+        run: |
+          echo "Go version: ${{ matrix.go-version }}"
+
+      - name: Deploy Aerolab Multinode Cluster
+        uses: gagan405/github-action-aerolab-runner/.github/workflows/run-aerolab.yml@aerolab-ci
+        with:
+          aerospike_version: ${{ github.event.inputs.aerospike_version }}
+          nodes: ${{ github.event.inputs.nodes }}
+          cluster_name: ${{ github.event.inputs.cluster_name }}
+      
+      - name: Test pkg tests
+        env: {GOPROXY: off, GOSUMDB: off, GOFLAGS: -mod=vendor}
+        run: go run -mod=vendor github.com/onsi/ginkgo/v2/ginkgo -cover -race -r -keep-going -succinct -randomize-suites pkg -- -p=3100
+      - name: Build Benchmark tool
+        env: {GOPROXY: off, GOSUMDB: off, GOFLAGS: -mod=vendor}
+        run: cd tools/benchmark | go build -mod=vendor -tags as_proxy -o benchmark .
+      - name: Build asinfo tool
+        env: {GOPROXY: off, GOSUMDB: off, GOFLAGS: -mod=vendor}
+        run: cd tools/asinfo | go build -mod=vendor -o asinfo .
+      - name: Build cli tool
+        env: {GOPROXY: off, GOSUMDB: off, GOFLAGS: -mod=vendor}
+        run: cd tools/cli | go build -mod=vendor -o cli .
+      - name: Build example files
+        env: {GOPROXY: off, GOSUMDB: off, GOFLAGS: -mod=vendor}
+        run: find examples -name "*.go" -type f -print0 | xargs -0 -n1 go build
+      - name: Build with Reflection code removed
+        env: {GOPROXY: off, GOSUMDB: off, GOFLAGS: -mod=vendor}
+        run: go run -mod=vendor github.com/onsi/ginkgo/v2/ginkgo build -tags="as_performance" .
+      - name: Build for Google App Engine (unsafe package removed)
+        env: {GOPROXY: off, GOSUMDB: off, GOFLAGS: -mod=vendor}
+        run: go run -mod=vendor github.com/onsi/ginkgo/v2/ginkgo build -tags="app_engine" .
+      - name: Run the tests
+        env: {GOPROXY: off, GOSUMDB: off, GOFLAGS: -mod=vendor}
+        run: go run -mod=vendor github.com/onsi/ginkgo/v2/ginkgo -coverprofile=./cover_native.out -covermode=atomic -coverpkg=./... -race -keep-going -succinct -randomize-suites -skip="HyperLogLog" -- -p=3100
+      - name: Combine Cover Profiles
+        env: {GOPROXY: off, GOSUMDB: off, GOFLAGS: -mod=vendor}
+        run: go run -mod=vendor github.com/wadey/gocovmerge cover_*.out > cover_all.out
+      - name: Check Code Coverage
+        uses: vladopajic/go-test-coverage@v2
+        with:
+          # Configure action using config file (option 1)
+          config: ./.testcoverage.yml
