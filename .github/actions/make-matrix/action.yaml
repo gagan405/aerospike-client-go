@@ -37,7 +37,8 @@ runs:
         echo "Validating JSON..."
         echo "${JSON}" | jq . >/dev/null
 
-        MATRIX="$(echo "${JSON}" | jq -c --arg go "${GO_VERSION}" '[to_entries[] | { server: .key, go: $go } + .value]')"
+        MATRIX="$(echo "${JSON}" | jq -c --arg go "${GO_VERSION}" '[to_entries[] | {server: .key, version: .value.version, "go-version": $go}]')"
+
         echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
 
 outputs:
