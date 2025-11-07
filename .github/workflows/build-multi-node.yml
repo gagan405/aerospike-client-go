@@ -42,7 +42,7 @@ jobs:
       - name: debug - print input variables
         run: |
           echo ${{ steps.get-go-version.outputs.go-version }}
-          echo ${{ steps.create-server-matrix.outputs.input-matrix }}
+          echo ${{ steps.create-server-matrix.outputs.matrix }}
 
   deploy-aerolab:
     needs: make-matrix
