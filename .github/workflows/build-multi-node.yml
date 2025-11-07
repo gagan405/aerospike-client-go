@@ -34,8 +34,7 @@ jobs:
         with:
           default_json: |
             {
-              "stable": { "version": "8.1.0.1" },
-              "release": { "version": "8.1.0.1_2" }
+              "stable": { "version": "8.1.0.1" }
             }
           go_version: ${{ steps.get-go-version.outputs.go-version }}
 
@@ -44,24 +43,24 @@ jobs:
           echo "Go version: ${{ steps.get-go-version.outputs.go-version }}"
           echo 'Matrix output:'
           echo '${{ steps.create-server-matrix.outputs.matrix }}' | jq .
-
-  deploy-aerolab:
-    needs: make-matrix
-    uses: gagan405/github-action-aerolab-runner/.github/workflows/run-aerolab.yml@aerolab-ci
-    with:
-      aerospike_version: ${{ github.event.inputs.aerospike_version }}
-      nodes: ${{ github.event.inputs.nodes }}
-      cluster_name: ${{ github.event.inputs.cluster_name }}
       
   build:
     timeout-minutes: 30
-    needs: deploy-aerolab
+    needs: make-matrix
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include: ${{ fromJson(needs.make-matrix.outputs.input-matrix) }}
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Deploy Aerolab cluster
+        uses: gagan405/github-action-aerolab-runner/.github/actions/deploy-aerolab@aerolab-ci
+        with:
+          aerospike_version: ${{ matrix.version }}
+          cluster_name: ${{ matrix.server }}
+          nodes: ${{ github.event.inputs.nodes }}
+        
       - name: "Setup Go ${{ needs.make-matrix.outputs.go-version }}"
         uses: actions/setup-go@v4
         with:
