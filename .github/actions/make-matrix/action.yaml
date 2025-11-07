@@ -39,7 +39,10 @@ runs:
 
         MATRIX="$(echo "${JSON}" | jq -c --arg go "${GO_VERSION}" '[to_entries[] | {server: .key, version: .value.version, "go-version": $go}]')"
 
-        echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
+        echo "matrix<<EOF" >> "$GITHUB_OUTPUT"
+        echo "${MATRIX}" >> "$GITHUB_OUTPUT"
+        echo "EOF" >> "$GITHUB_OUTPUT"
+
 
 outputs:
   matrix:
